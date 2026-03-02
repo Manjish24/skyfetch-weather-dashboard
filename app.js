@@ -3,23 +3,44 @@ const API_KEY = '9bd2e99b88a9e10c00d201648d10d372';  // Replace with your actual
 const API_URL = 'https://api.openweathermap.org/data/2.5/weather';
 
 // Function to fetch weather data
-function getWeather(city) {
-    // Build the complete URL
+async function getWeather(city) {
+    // Before making the request, show a loading indicator
+    showLoading();
+
+    // Disable search button while loading
+    if (searchBtn) {
+        searchBtn.disabled = true;
+        searchBtn.textContent = 'Searching...';
+    }
+
+    // Build the API URL
     const url = `${API_URL}?q=${city}&appid=${API_KEY}&units=metric`;
-    
-    // Make API call using Axios
-    axios.get(url)
-        .then(function(response) {
-            // Success! We got the data
-            console.log('Weather Data:', response.data);
-            displayWeather(response.data);
-        })
-        .catch(function(error) {
-            // Something went wrong
-            console.error('Error fetching weather:', error);
-            document.getElementById('weather-display').innerHTML = 
-                '<p class="loading">Could not fetch weather data. Please try again.</p>';
-        });
+
+    // Wrap call in try/catch for async/await
+    try {
+        const response = await axios.get(url);
+        // Log the response for debugging
+        console.log('Weather Data:', response.data);
+
+        // Pass the data to the display function
+        displayWeather(response.data);
+    } catch (error) {
+        // Log error for debugging
+        console.error('Error fetching weather:', error);
+
+        // Show appropriate message based on error type
+        if (error.response && error.response.status === 404) {
+            showError('City not found. Please check the spelling and try again.');
+        } else {
+            showError('Something went wrong. Please try again later.');
+        }
+    } finally {
+        // Re-enable button and restore text
+        if (searchBtn) {
+            searchBtn.disabled = false;
+            searchBtn.textContent = '🔍 Search';
+        }
+    }
 }
 
 // Function to display weather data
@@ -43,7 +64,83 @@ function displayWeather(data) {
     
     // Put it on the page
     document.getElementById('weather-display').innerHTML = weatherHTML;
+
+    // Focus back on the input for quick next search
+    if (cityInput) {
+        cityInput.focus();
+    }
+}
+
+// Utility to present errors to the user
+function showError(message) {
+    // Create styled error HTML
+    const errorHTML = `
+        <div class="error-message">
+            <p>❌ <strong>Error:</strong></p>
+            <p>${message}</p>
+        </div>
+    `;
+
+    // Display inside the weather container
+    document.getElementById('weather-display').innerHTML = errorHTML;
+}
+
+// Utility to show a loading indicator
+function showLoading() {
+    const loadingHTML = `
+        <div class="loading-container">
+            <div class="spinner"></div>
+            <p>Loading...</p>
+        </div>
+    `;
+    document.getElementById('weather-display').innerHTML = loadingHTML;
 }
 
 // Call the function when page loads
-getWeather('London');
+// getWeather('London');  // removed default request
+
+// Show a welcome prompt instead
+document.getElementById('weather-display').innerHTML = `
+    <div class="welcome-message">
+        <p>Enter a city name to get started!</p>
+    </div>
+`;
+
+// TODO: Get references to HTML elements
+const searchBtn = document.getElementById('search-btn');
+const cityInput = document.getElementById('city-input');
+
+// TODO: Add click event listener to search button
+searchBtn.addEventListener('click', function() {
+    // Get city name from input and trim spaces
+    const city = cityInput.value.trim();
+
+    // Validation rules
+    if (!city) {
+        showError('Please enter a city name.');
+        return;
+    }
+    if (city.length < 2) {
+        showError('City name too short.');
+        return;
+    }
+
+    // Proceed with search
+    getWeather(city);
+});
+
+// BONUS TODO: Add enter key support
+cityInput.addEventListener('keypress', function(event) {
+    if (event.key === 'Enter') {
+        const city = cityInput.value.trim();
+        if (!city) {
+            showError('Please enter a city name.');
+            return;
+        }
+        if (city.length < 2) {
+            showError('City name too short.');
+            return;
+        }
+        getWeather(city);
+    }
+});
